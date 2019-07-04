@@ -10,11 +10,19 @@ class TypeParser
 
 	public function parse(TokenIterator $tokens): Ast\Type\TypeNode
 	{
+		return $this->doParse($tokens, true);
+	}
+
+	private function doParse(TokenIterator $tokens, bool $greedy): Ast\Type\TypeNode
+	{
 		if ($tokens->isCurrentTokenType(Lexer::TOKEN_NULLABLE)) {
 			$type = $this->parseNullable($tokens);
 
 		} else {
 			$type = $this->parseAtomic($tokens);
+			if (!$greedy) {
+				return $type;
+			}
 
 			if ($tokens->isCurrentTokenType(Lexer::TOKEN_UNION)) {
 				$type = $this->parseUnion($tokens, $type);
@@ -160,26 +168,7 @@ class TypeParser
 
 	private function parseCallableReturnType(TokenIterator $tokens): Ast\Type\TypeNode
 	{
-		if ($tokens->isCurrentTokenType(Lexer::TOKEN_NULLABLE)) {
-			$type = $this->parseNullable($tokens);
-
-		} elseif ($tokens->tryConsumeTokenType(Lexer::TOKEN_OPEN_PARENTHESES)) {
-			$type = $this->parse($tokens);
-			$tokens->consumeTokenType(Lexer::TOKEN_CLOSE_PARENTHESES);
-
-		} else {
-			$type = new Ast\Type\IdentifierTypeNode($tokens->currentTokenValue());
-			$tokens->consumeTokenType(Lexer::TOKEN_IDENTIFIER);
-
-			if ($tokens->isCurrentTokenType(Lexer::TOKEN_OPEN_ANGLE_BRACKET)) {
-				$type = $this->parseGeneric($tokens, $type);
-
-			} elseif ($type->name === 'array' && $tokens->isCurrentTokenType(Lexer::TOKEN_OPEN_CURLY_BRACKET) && !$tokens->isPrecededByHorizontalWhitespace()) {
-				$type = $this->parseArrayShape($tokens, $type);
-			}
-		}
-
-		return $type;
+		return $this->doParse($tokens, false);
 	}
 
 
